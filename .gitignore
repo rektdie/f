@@ -1,0 +1,16 @@
+# Ignore object files and build artifacts
+objs/
+*.o
+*.mod
+
+# Ignore executable binaries
+f
+*.exe
+
+# Optional: ignore editor/IDE files
+*.swp
+*.swo
+*.DS_Store
+.idea/
+.vscode/
+
