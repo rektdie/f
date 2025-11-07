@@ -1,5 +1,5 @@
-# Cross-platform Makefile for Fortran 2008 (.f08)
-# All objects in objs/, entry point f.f08 → executable f
+# Cross-platform Makefile for Fortran 2008 (.f90)
+# All objects in objs/, entry point f.f90 → executable f
 .SUFFIXES:
 
 FC := gfortran
@@ -9,7 +9,7 @@ OS := $(shell uname -s 2>/dev/null || echo Windows)
 CPU := $(shell uname -m 2>/dev/null || echo unknown)
 FCVER := $(shell $(FC) --version 2>/dev/null | head -n1)
 
-# Detect cores for -j
+# Detect CPU cores for -j
 NPROCS := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 1)
 MAKEFLAGS += -j$(NPROCS)
 
@@ -44,10 +44,10 @@ SRCDIR := src
 OBJDIR := objs
 
 # Source files
-SRCS := $(wildcard $(SRCDIR)/*.f08)
-OBJS := $(patsubst $(SRCDIR)/%.f08,$(OBJDIR)/%.o,$(SRCS))
+SRCS := $(wildcard $(SRCDIR)/*.f90)
+OBJS := $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SRCS))
 
-# Executable = entry point f.f08 → f
+# Executable = entry point f.f90 → f
 TARGET := f
 
 .PHONY: all clean info
@@ -59,7 +59,7 @@ $(TARGET): $(OBJS)
 	$(FC) $(FFLAGS) $(OBJS) -o $(TARGET)
 
 # Compile objects
-$(OBJDIR)/%.o: $(SRCDIR)/%.f08 | $(OBJDIR)
+$(OBJDIR)/%.o: $(SRCDIR)/%.f90 | $(OBJDIR)
 	$(FC) $(FFLAGS) -c $< -o $@
 
 # Ensure object directory exists
