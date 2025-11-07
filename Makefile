@@ -1,19 +1,16 @@
-# Cross-platform Makefile for Fortran 2008 (.f90)
-# All objects in objs/, entry point f.f90 → executable f
+# Cross-platform Makefile for Fortran 2008 (.f90) - Dynamic module handling
 .SUFFIXES:
 
 FC := gfortran
+RM := rm -rf
 
-# Detect OS, CPU, compiler
 OS := $(shell uname -s 2>/dev/null || echo Windows)
 CPU := $(shell uname -m 2>/dev/null || echo unknown)
 FCVER := $(shell $(FC) --version 2>/dev/null | head -n1)
 
-# Detect CPU cores for -j
 NPROCS := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 1)
 MAKEFLAGS += -j$(NPROCS)
 
-# CPU optimization flags
 ifeq ($(findstring GNU Fortran,$(FCVER)),GNU Fortran)
   ifeq ($(CPU),x86_64)
     CPU_FLAGS := -march=native
@@ -24,37 +21,40 @@ ifeq ($(findstring GNU Fortran,$(FCVER)),GNU Fortran)
   else
     CPU_FLAGS :=
   endif
+  UNSIGNED_FLAG := -funsigned
 else ifneq (,$(findstring Intel,$(FCVER)))
   CPU_FLAGS := -xHost
+  UNSIGNED_FLAG :=
 else
   CPU_FLAGS :=
+  UNSIGNED_FLAG :=
 endif
 
-# Windows flags
 ifeq ($(OS),Windows)
   EXTRA_FLAGS := -fno-stack-protector
 else
   EXTRA_FLAGS :=
 endif
 
-FFLAGS := -std=f2008 -O3 -Wall $(CPU_FLAGS) $(EXTRA_FLAGS)
+FFLAGS := -std=f2008 -O3 -Wall $(CPU_FLAGS) $(EXTRA_FLAGS) $(UNSIGNED_FLAG) -Jsrc
 
-# Directories
 SRCDIR := src
 OBJDIR := objs
 
-# Source files
 SRCS := $(wildcard $(SRCDIR)/*.f90)
-OBJS := $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(SRCS))
 
-# Executable = entry point f.f90 → f
+# Detect module files (any .f90 that contains a "module" declaration, not "program")
+MODULES := $(shell grep -iRl '^[[:space:]]*module[[:space:]]' $(SRCS) | grep -vi 'program')
+# Main programs are everything else
+MAINS := $(filter-out $(MODULES),$(SRCS))
+
+OBJS := $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(MODULES) $(MAINS))
 TARGET := f
 
 .PHONY: all clean info
 
 all: info $(TARGET)
 
-# Link all objects into executable
 $(TARGET): $(OBJS)
 	$(FC) $(FFLAGS) $(OBJS) -o $(TARGET)
 
@@ -66,18 +66,23 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.f90 | $(OBJDIR)
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
+# Dynamically add dependencies: if a file uses a module, depend on the corresponding .o
+define generate_deps
+$(OBJDIR)/$(notdir $(1:.f90=.o)): $(foreach mod,$(MODULES),$(OBJDIR)/$(notdir $(mod:.f90=.o)))
+endef
+$(foreach file,$(MODULES) $(MAINS),$(eval $(call generate_deps,$(file))))
+
 info:
-	@echo "Detected OS:   $(OS)"
-	@echo "CPU arch:      $(CPU)"
-	@echo "Compiler:      $(FCVER)"
-	@echo "Cores used:    $(NPROCS)"
-	@echo "Flags:         $(FFLAGS)"
-	@echo "Sources:       $(SRCS)"
-	@echo "Objects dir:   $(OBJDIR)"
-	@echo "Executable:    $(TARGET)"
+	@echo "Detected OS:      $(OS)"
+	@echo "CPU arch:         $(CPU)"
+	@echo "Compiler:         $(FCVER)"
+	@echo "Cores used:       $(NPROCS)"
+	@echo "Flags:            $(FFLAGS)"
+	@echo "Module sources:   $(MODULES)"
+	@echo "Main sources:     $(MAINS)"
+	@echo "Objects dir:      $(OBJDIR)"
+	@echo "Executable:       $(TARGET)"
 
-# Clean objects and binary
 clean:
-	@echo "Cleaning object files and executable..."
-	rm -rf $(OBJDIR) $(TARGET)
-
+	@echo "Cleaning object files, module files, and executable..."
+	$(RM) $(OBJDIR) $(TARGET) $(SRCDIR)/*.mod

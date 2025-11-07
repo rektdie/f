@@ -1,4 +1,10 @@
 program f
-    ! This is a comment
-    print *, "Engine f"
+    use BitboardMod
+    use TypesMod
+    implicit none
+
+    type(Bitboard) :: bb
+    bb = Bitboard_init(UINT(65535, kind=uint64))
+    call bb%Print()
+
 end program f
