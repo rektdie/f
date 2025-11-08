@@ -9,6 +9,10 @@ module BitboardMod
     contains
         procedure, public :: print
         procedure, public :: IsSet
+        procedure, public :: SetBit
+        procedure, public :: PopBit
+        procedure, public :: PopCount
+        procedure, public :: GetLS1BIndex
     end type Bitboard
 
     public :: Bitboard_init
@@ -28,6 +32,41 @@ contains
         integer, intent(in) :: square
         IsSet = iand(this%board, shiftl(UINT(1, kind=uint64), square)) /= 0u_uint64
     end function IsSet
+
+    ! Sets the bit at the given square
+    subroutine SetBit(this, square)
+        class(Bitboard), intent(inout) :: this
+        integer, intent(in) :: square
+        this%board = ior(this%board, shiftl(UINT(1, kind=uint64), square))
+    end subroutine SetBit
+
+    ! Pops the bit at the given square
+    subroutine PopBit(this, square)
+        class(Bitboard), intent(inout) :: this
+        integer, intent(in) :: square
+        this%board = iand(this%board, not(shiftl(UINT(1, kind=uint64), square)))
+    end subroutine PopBit
+
+    ! Returns the number of non-zero bits
+    function PopCount(this) result(count)
+        class(Bitboard), intent(in) :: this
+        integer :: count
+        count = popcnt(this%board)
+    end function PopCount
+
+    ! Returns index of the least significant first bit
+    function GetLS1BIndex(this) result(index)
+        class(Bitboard), intent(in) :: this
+        integer :: index
+        unsigned(uint64) :: ls1b_mask
+
+        if (this%board /= 0u_uint64) then
+            ls1b_mask = iand(this%board, -this%board)
+            index = popcnt(ls1b_mask - 1u_uint64)
+        else
+            index = -1
+        end if
+    end function GetLS1BIndex
 
     ! Prints the bitboard
     subroutine Print(this)
