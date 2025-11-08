@@ -3,11 +3,9 @@
 
 FC := gfortran
 RM := rm -rf
-
 OS := $(shell uname -s 2>/dev/null || echo Windows)
 CPU := $(shell uname -m 2>/dev/null || echo unknown)
 FCVER := $(shell $(FC) --version 2>/dev/null | head -n1)
-
 NPROCS := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 1)
 MAKEFLAGS += -j$(NPROCS)
 
@@ -45,10 +43,12 @@ SRCS := $(wildcard $(SRCDIR)/*.f90)
 
 # Detect module files (any .f90 that contains a "module" declaration, not "program")
 MODULES := $(shell grep -iRl '^[[:space:]]*module[[:space:]]' $(SRCS) | grep -vi 'program')
+
 # Main programs are everything else
 MAINS := $(filter-out $(MODULES),$(SRCS))
 
 OBJS := $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(MODULES) $(MAINS))
+
 TARGET := f
 
 .PHONY: all clean info
@@ -66,11 +66,20 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.f90 | $(OBJDIR)
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
-# Dynamically add dependencies: if a file uses a module, depend on the corresponding .o
-define generate_deps
-$(OBJDIR)/$(notdir $(1:.f90=.o)): $(foreach mod,$(MODULES),$(OBJDIR)/$(notdir $(mod:.f90=.o)))
-endef
-$(foreach file,$(MODULES) $(MAINS),$(eval $(call generate_deps,$(file))))
+# Generate dependencies using a simpler approach
+# Extract module names and create a mapping file at parse time
+MODULE_NAMES := $(foreach mod,$(MODULES),$(shell grep -iE '^[[:space:]]*module[[:space:]]+[a-zA-Z]' $(mod) | grep -vi 'procedure' | head -n1 | tr '[:upper:]' '[:lower:]' | awk '{print $$2}'))
+
+# Create explicit mappings (module_name -> object_file)
+# types -> objs/types.o, bitboardmod -> objs/bitboard.o, etc.
+$(foreach i,$(shell seq 1 $(words $(MODULES))),\
+  $(eval MOD_$(word $(i),$(MODULE_NAMES)) := $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(word $(i),$(MODULES)))))
+
+# Now for each source file, find which modules it uses and add dependencies
+$(foreach src,$(SRCS),\
+  $(foreach use,$(shell grep -iE '^[[:space:]]*use[[:space:]]+[a-zA-Z]' $(src) 2>/dev/null | tr '[:upper:]' '[:lower:]' | awk '{print $2}' | cut -d',' -f1),\
+    $(if $(MOD_$(use)),\
+      $(eval $(patsubst $(SRCDIR)/%.f90,$(OBJDIR)/%.o,$(src)): $(MOD_$(use))))))
 
 info:
 	@echo "Detected OS:      $(OS)"

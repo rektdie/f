@@ -8,10 +8,8 @@ module TypesMod
          "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     
     ! Colors
-    enum, bind(C)
-        enumerator :: White = 0
-        enumerator :: Black = 1
-    end enum
+    logical, parameter :: White = .false.
+    logical, parameter :: Black = .true.
 
     ! Pieces
     enum, bind(C)
