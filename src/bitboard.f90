@@ -20,10 +20,9 @@ module BitboardMod
 contains
 
     ! Factory function: creates a bitboard with an initial value
-    function Bitboard_init(value) result(bb)
+    type(Bitboard) function Bitboard_init(value)
         unsigned(uint64), intent(in) :: value
-        type(Bitboard) :: bb
-        bb%board = value
+        Bitboard_init%board = value
     end function Bitboard_init
 
     ! Returns true if the bit at the given square is set
@@ -48,23 +47,21 @@ contains
     end subroutine PopBit
 
     ! Returns the number of non-zero bits
-    function PopCount(this) result(count)
+    integer function PopCount(this)
         class(Bitboard), intent(in) :: this
-        integer :: count
-        count = popcnt(this%board)
+        PopCount = popcnt(this%board)
     end function PopCount
 
     ! Returns index of the least significant first bit
-    function GetLS1BIndex(this) result(index)
+    integer function GetLS1BIndex(this)
         class(Bitboard), intent(in) :: this
-        integer :: index
         unsigned(uint64) :: ls1b_mask
 
         if (this%board /= 0u_uint64) then
             ls1b_mask = iand(this%board, -this%board)
-            index = popcnt(ls1b_mask - 1u_uint64)
+            GetLS1BIndex = popcnt(ls1b_mask - 1u_uint64)
         else
-            index = -1
+            GetLS1BIndex = -1
         end if
     end function GetLS1BIndex
 
